@@ -30,13 +30,8 @@ def results(request, client_id):
     is_elec_heating = True
     dysfunction_detected = False
 
-    context = {
-        "annual_costs": annual_costs,
-        "is_elec_heating": is_elec_heating,
-        "dysfunction_detected": dysfunction_detected,
-        "client_id": client_id,
-        "conso_watt_graph": conso_watt_graph
-    }
+    context = ContextBuilder(client_id, 2017).context
+
     return render(request, 'dashboard/results.html', context)
 
 
@@ -78,17 +73,6 @@ class ContextBuilder:
         }
 
         return contexte
-
-
-class ContextBuilder:
-    def __init__(self):
-        self.conso_euro = []
-        self.conso_watt = []
-        self.annual_costs = [0, 0]
-        self.is_elec_heating = True
-        self.dysfunction_detected = False
-
-
 
 
 class EuroCostDealer:
