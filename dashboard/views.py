@@ -24,16 +24,11 @@ class ClientFormView(View):  # class ClientFormView(View)
 
 
 def results(request, client_id):
-    annual_costs = EuroCostDealer(client_id).set_annual_cost(2017)
-    conso_watt_graph = ConsoWattDealer(client_id).get_conso_watt_graph(2017)
-    is_elec_heating = ConsoWattDealer(client_id).is_electric_heating()
-    dysfunction_detected = ConsoWattDealer(client_id).set_dysfunctional_string()
-
-    ###################################
-    # ----> YOUR CODE GOES HERE <---- #
-    ###################################
-
-    gna = 4
+    conso_euro = []
+    conso_watt = []
+    annual_costs = [0, 0]
+    is_elec_heating = True
+    dysfunction_detected = False
 
     context = {
         "annual_costs": annual_costs,
@@ -62,6 +57,38 @@ class Months(Enum):
     OCTOBRE = "octobre"
     NOVEMBRE = "novembre"
     DECEMBRE = "decembre"
+
+
+class ContextBuilder:
+    def __init__(self, client_id, year):
+        self.client_id = client_id
+        self.year = year
+        self.context = self.set_context()
+
+    def set_context(self):
+        euro_cost_dealer = EuroCostDealer(self.client_id)
+        euro_watt_dealer = ConsoWattDealer(self.client_id)
+
+        contexte = {
+            "annual_costs": euro_cost_dealer.set_annual_cost(self.year),
+            "conso_watt_graph": euro_watt_dealer.get_conso_watt_graph(self.year),
+            "is_elec_heating": euro_watt_dealer.is_electric_heating(),
+            "dysfunction_detected": euro_watt_dealer.set_dysfunctional_string(),
+            "client_id": self.client_id,
+        }
+
+        return contexte
+
+
+class ContextBuilder:
+    def __init__(self):
+        self.conso_euro = []
+        self.conso_watt = []
+        self.annual_costs = [0, 0]
+        self.is_elec_heating = True
+        self.dysfunction_detected = False
+
+
 
 
 class EuroCostDealer:
@@ -109,7 +136,8 @@ class ConsoWattDealer:
     def set_available_years(self):
         """
         set the year where the conso_watt data are available for a given client_id
-        :return:
+
+        :return (list): list of all the year where we have the watt data for a given client
         """
         all_years_values = Conso_watt.objects.all().values_list('year', 'client_id')
         return [item[0] for item in all_years_values.__iter__() if item[1] == int(self.client_id)]
