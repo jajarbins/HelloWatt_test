@@ -24,18 +24,25 @@ class ClientFormView(View):  # class ClientFormView(View)
 
 
 def results(request, client_id):
+
     conso_euro = []
     conso_watt = []
     annual_costs = [0, 0]
     is_elec_heating = True
     dysfunction_detected = False
 
-    context = ContextBuilder(client_id, 2017).context
+    context = ContextBuilder(client_id).context
 
     return render(request, 'dashboard/results.html', context)
 
 
-# noinspection SpellCheckingInspection
+def year_selection(request):
+    if request.is_ajax() and request.method == 'GET':
+        context = ContextBuilder(client_id=1, current_year=request.POST["year"])
+        return context
+    return ContextBuilder(client_id=1)
+
+
 class Months(Enum):
     """
         in order to set constants properly and be able to iterate through values
@@ -55,24 +62,36 @@ class Months(Enum):
 
 
 class ContextBuilder:
-    def __init__(self, client_id, year):
+    def __init__(self, client_id, current_year=2017):
         self.client_id = client_id
-        self.year = year
+        self.current_year = current_year
         self.context = self.set_context()
 
     def set_context(self):
-        euro_cost_dealer = EuroCostDealer(self.client_id)
-        euro_watt_dealer = ConsoWattDealer(self.client_id)
+        available_years = self.set_available_years()
 
-        contexte = {
-            "annual_costs": euro_cost_dealer.set_annual_cost(self.year),
-            "conso_watt_graph": euro_watt_dealer.get_conso_watt_graph(self.year),
+        euro_cost_dealer = EuroCostDealer(self.client_id)
+        euro_watt_dealer = ConsoWattDealer(self.client_id, available_years, self.current_year)
+
+        context = {
+            "annual_costs": euro_cost_dealer.set_annual_cost(self.current_year),
+            "conso_watt_graph": euro_watt_dealer.get_conso_watt_graph(),
             "is_elec_heating": euro_watt_dealer.is_electric_heating(),
             "dysfunction_detected": euro_watt_dealer.set_dysfunctional_string(),
             "client_id": self.client_id,
+            "available_years": available_years
         }
 
-        return contexte
+        return context
+
+    def set_available_years(self):
+        """
+        set the year where the conso_watt data are available for a given client_id
+
+        :return (list): list of all the year where we have the watt data for a given client
+        """
+        all_years_values = Conso_watt.objects.values_list('year', "client_id")  #
+        return [item[0] for item in all_years_values.__iter__() if item[1] == int(self.client_id)]
 
 
 class EuroCostDealer:
@@ -113,18 +132,14 @@ class EuroCostDealer:
 
 
 class ConsoWattDealer:
-    def __init__(self, client_id):
+    def __init__(self, client_id, available_years, current_year):
         self.client_id = client_id
-        self.years = self.set_available_years()
+        self.available_years = available_years
+        self.current_year = current_year
+        self.monthly_conso_watt_for_available_years = self.set_monthly_conso_watt_for_available_years()
 
-    def set_available_years(self):
-        """
-        set the year where the conso_watt data are available for a given client_id
-
-        :return (list): list of all the year where we have the watt data for a given client
-        """
-        all_years_values = Conso_watt.objects.all().values_list('year', 'client_id')
-        return [item[0] for item in all_years_values.__iter__() if item[1] == int(self.client_id)]
+    def set_monthly_conso_watt_for_available_years(self):
+        return {year: self.set_monthly_conso_watt(year) for year in self.available_years}
 
     def set_monthly_conso_watt(self, year):
         """
@@ -137,7 +152,7 @@ class ConsoWattDealer:
         conso_euro = Conso_watt.objects.get(client_id=self.client_id, year=year)
         return [round(conso_euro.__getattribute__(month.value), 2) for month in Months]
 
-    def get_conso_watt_graph(self, year):
+    def get_conso_watt_graph(self):
         """
             get list of month ( x(t) ) and list of watt consumption for a year( y(t) ), and create a simple line plot ( y(t) = x(t) )
 
@@ -148,7 +163,7 @@ class ConsoWattDealer:
             "data": [{
                 "type": "scatter",
                 "x": [month.value for month in Months],
-                "y": self.set_monthly_conso_watt(year)
+                "y": self.monthly_conso_watt_for_available_years[self.current_year]
             }],
             "layout": {
                 "title": {
@@ -190,31 +205,21 @@ class ConsoWattDealer:
         # Note2: Arbitrary say that electric heating is used during november, december, january, february, march and april
 
         higher_electric_consumption_coefficient = 1.3
+        winter_months_index = [-1, -1, 0, 0, 0, 0]
+
         using_elec_heating = []
 
-        for year in self.years:
+        for monthly_conso_watt_for_current_year in self.monthly_conso_watt_for_available_years.values():
 
-            # GET DATA
-            conso = self.set_monthly_conso_watt(year)
+            # to avoid removing data from class attribute, we make a copy of it
+            monthly_conso_watt = monthly_conso_watt_for_current_year.copy()
 
-            # PREPROCESS DATA:
-            # split winter months and summer months
-            winter_months_conso = [
-                conso.pop(-1) +
-                conso.pop(-1) +
-                conso.pop(0) +
-                conso.pop(0) +
-                conso.pop(0) +
-                conso.pop(0)
-            ]
+            # split winter months and summer months, summer months will stay in monthly_conso_watt
+            winter_months_conso = [monthly_conso_watt.pop(index) for index in winter_months_index]
 
-            # remove lower month for each part of the year
-            winter_months_conso.remove(min(winter_months_conso))
-            conso.remove(min(conso))
-
-            # average calculation
-            winter_average_conso = sum(winter_months_conso)/5  # 5 month are take into account
-            summer_average_conso = sum(conso)/5  # 5 month are taken into account
+            # average seasonal conso calculation
+            winter_average_conso = self.set_season_average_conso(winter_months_conso)
+            summer_average_conso = self.set_season_average_conso(monthly_conso_watt)
 
             # ARBITRATION
             # check if there is a significant increase of the electric consumption during winter months.
@@ -227,6 +232,18 @@ class ConsoWattDealer:
         if using_elec_heating.__contains__(False):
             return False
         return True
+
+    @staticmethod
+    def set_season_average_conso(season_month_conso):
+        """
+        calculate the average consumption over a season (winter/summer) without the month at the lowest consumption
+        to take into account months where clients are in holidays
+
+        :param (list) season_month_conso: list of watt consumption by month over a season
+        :return: the average consumption over a season, without the lowest month 
+        """
+        season_month_conso.remove(min(season_month_conso))
+        return sum(season_month_conso)/5
 
     def is_dysfunctional(self):
         """
@@ -246,16 +263,12 @@ class ConsoWattDealer:
         dysfunctional_month_margin = 1  # the number of months tolerated where, for a given month, the consumption of the following year is lower than 110% of the previous year
         dysfunctional_years = []  # list of tuples containing the years where problems have been detected
 
-        # GET DATA
-        # all_years_conso is a list of watt consumption by month for each year (list of list)
-        all_years_conso = [self.set_monthly_conso_watt(year) for year in self.years]
-
         # we iterates through each year of monthly watt consumption, to compare it with the monthly consumption of the following year
         # and also through each available year (hardcoded in Years) to be able to know when was the dysfunction
-        for i, (year_conso, year)in enumerate(zip(all_years_conso, self.years)):
+        for i, (year, year_conso)in enumerate(self.monthly_conso_watt_for_available_years.items()):
 
             # as we can't compare the last year we have with the following one (doesn't exist), we stop the iteration at this point
-            if i == len(all_years_conso) - 1:
+            if i == len(self.monthly_conso_watt_for_available_years) - 1:
                 break
 
             # higher_conso store a boolean for each month comparison, True if the consumption
@@ -263,7 +276,7 @@ class ConsoWattDealer:
             higher_conso = []
 
             # we iterate through each month of the current and next year to be able to compare them
-            for current_year_month_conso, next_year_month_conso in zip(all_years_conso[i], all_years_conso[i + 1]):
+            for current_year_month_conso, next_year_month_conso in zip(year_conso, self.monthly_conso_watt_for_available_years[year + 1]):
 
                 # check if the next year consumption is, at least, 10% higher than
                 # next year consumption for the given month
@@ -281,9 +294,9 @@ class ConsoWattDealer:
 
     def set_dysfunctional_string(self):
         """
-        create the string to display if their is a dysfunctional
+        create the string to display if their is a dysfunction
 
-        :return (str): the string ready to be sent to html
+        :return (str): the string ready to be sent to html through context
         """
 
         string = "Il y a un dysfonctionnement entre les années: "

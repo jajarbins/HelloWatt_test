@@ -1,5 +1,7 @@
 {% extends 'dashboard/results_base.html' %}
 
+{% csrf_token %}
+
 {% load static %}
 
 {% block style %}
@@ -12,11 +14,14 @@
         <h1 class="page-header">Mon tableau de bord énergie</h1>
     </div>
 </div>
-    {% for c in content %} <!-- exemple to delete -->
-        <p>{{c}} </p> }}
-    {% endfor %}
 
-<div class="row"> <!-- check c'est quoi ste classe -->
+<select id="year_selection" name="year_selection">
+    {% for year in available_years %}
+        <option value="{{ year }}">{{ year }}</option>
+    {% endfor %}
+</select>
+
+<div class="row">
     <div class="col-lg-12">
         <p>dépenses annuelles: {{ annual_costs }} €</p>
 
@@ -41,6 +46,26 @@
 </div>
 
 {% endblock %}
+
+<script>
+        $( "#selection-button" ).click(function(event) {
+            event.preventDefault();
+            var airlineSelected = $('#airline-selected').find(":selected").val();
+
+            $.ajax({
+                url: "{% url 'charts_data' %}",
+                method: 'GET',
+                filter_category: parseInt(airlineSelected),
+                success: function(data){
+                console.log(data);
+         },
+                error: function(error_data){
+                console.log("error");
+                console.log(error_data);
+         }
+            })
+        });
+</script>
 
 {% block script %}
     <script src="{% static 'dashboard/js/results.js' %}"></script>
