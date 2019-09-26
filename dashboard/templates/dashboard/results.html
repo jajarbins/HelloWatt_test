@@ -47,26 +47,3 @@
 
 {% endblock %}
 
-<script>
-        $( "#selection-button" ).click(function(event) {
-            event.preventDefault();
-            var airlineSelected = $('#airline-selected').find(":selected").val();
-
-            $.ajax({
-                url: "{% url 'charts_data' %}",
-                method: 'GET',
-                filter_category: parseInt(airlineSelected),
-                success: function(data){
-                console.log(data);
-         },
-                error: function(error_data){
-                console.log("error");
-                console.log(error_data);
-         }
-            })
-        });
-</script>
-
-{% block script %}
-    <script src="{% static 'dashboard/js/results.js' %}"></script>
-{% endblock %}
