@@ -23,21 +23,14 @@ def results(request, client_id):
 
     # we should check client_id type, availability (...) here
 
-    context = set_context(ResultsContext, client_id=int(client_id))
-    return render(request, 'dashboard/results.html', context)
+    context = ResultsContext(client_id=int(client_id))
+    return render(request, 'dashboard/results.html', context.to_dict())
 
 
-def set_context(context, *args, **kwargs):
-    if kwargs:
-        return filter_context_data(context, **kwargs)
-    elif args:
-        return filter_context_data(context, *args)
-    else:
-        return filter_context_data(context)
 
-    
-def filter_context_data(context, args=()):
-    return {key: value for key, value in context(args).__dict__.items() if not key.startswith("_")}
+
+
+
 
 
 
