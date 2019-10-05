@@ -27,21 +27,23 @@ class Months(Enum):
 
 class ResultsContext(Context):
     def __init__(self, client_id, current_year=2017):
-        self.client_id = client_id
-        self.available_years = self.set_available_years()
-        self.current_year = current_year
-        self.__monthly_conso_watt_for_available_years = self.set_monthly_conso_watt_for_available_years()
+        self.client_id = int(client_id)
+        self.current_year = int(current_year)
+        self.available_years = None
+        self.__monthly_conso_watt_for_available_years = None
         self.annual_costs = None
         self.conso_watt_graph = None
-        self.is_elec_heating = None
-        self.dysfunction_detected = None
-        self.set_params()
+        self.is_elec_heating = False
+        self.dysfunction_detected = ""
+        self.set_parameters()
 
-    def set_params(self):
-        self.set_annual_cost(),
-        self.get_conso_watt_graph(),
-        self.is_electric_heating(),
-        self.set_dysfunctional_string(),
+    def set_parameters(self):
+        self.set_available_years()
+        self.set_monthly_conso_watt_for_available_years()
+        self.set_annual_cost()
+        self.get_conso_watt_graph()
+        self.is_electric_heating()
+        self.set_dysfunctional_string()
 
     def set_annual_cost(self):
         """
@@ -99,7 +101,7 @@ class ResultsContext(Context):
         return [round(conso_euro.__getattribute__(month.value), 2) for month in Months]
 
     def set_monthly_conso_watt_for_available_years(self):
-        return {year: self.set_monthly_conso_watt(year) for year in self.available_years}
+        self.__monthly_conso_watt_for_available_years = {year: self.set_monthly_conso_watt(year) for year in self.available_years}
 
     def set_available_years(self):
         """
@@ -108,7 +110,7 @@ class ResultsContext(Context):
         :return (list): list of all the year where we have the watt data for a given client
         """
         all_years_values = list(Conso_watt.objects.values_list('year', "client_id"))  #
-        return [item[0] for item in all_years_values.__iter__() if item[1] == int(self.client_id)]
+        self.available_years = [item[0] for item in all_years_values.__iter__() if item[1] == int(self.client_id)]
 
     def is_electric_heating(self):
         """
@@ -161,10 +163,9 @@ class ResultsContext(Context):
                 using_elec_heating.append(False)
 
         # we should have an increase of the electric consumption during winter months for all the available years to conclude
-        if using_elec_heating.__contains__(False):
-            self.is_elec_heating = False
-        else:
+        if not using_elec_heating.__contains__(False):
             self.is_elec_heating = True
+
 
     @staticmethod
     def set_season_average_conso(season_month_conso):
@@ -252,8 +253,7 @@ class ResultsContext(Context):
                     string += f"{years[0]}/{years[1]}"
 
             self.dysfunction_detected = string
-        else:
-            return ""
+
 
 
 

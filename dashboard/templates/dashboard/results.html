@@ -1,49 +1,65 @@
 {% extends 'dashboard/results_base.html' %}
 
-{% csrf_token %}
-
 {% load static %}
 
 {% block style %}
     <link rel="stylesheet" href="{% static 'dashboard/css/results.css' %}" media="all"/>
 {% endblock %}
 
+
 {% block content %}
-<div class="row">
-    <div class="col-lg-12">
-        <h1 class="page-header">Mon tableau de bord énergie</h1>
-    </div>
-</div>
 
-<select id="year_selection" name="year_selection">
-    {% for year in available_years %}
-        <option value="{{ year }}">{{ year }}</option>
-    {% endfor %}
-</select>
 
-<div class="row">
-    <div class="col-lg-12">
-        <p>dépenses annuelles: {{ annual_costs }} €</p>
 
-        {% if is_elec_heating %}
-            <p>Vous utilisez un chauffage électrique</p>
-        {% endif %}
-
-        {% if dysfunction_detected %}
-            <p>{{ dysfunction_detected }}</p>
-        {% endif %}
-
-        <p></p>
+    <div class="row">
+        <div class="col-lg-12">
+            <h1 class="page-header">Mon tableau de bord énergie</h1>
+        </div>
     </div>
 
-</div>
+    <select id="year_selecter" name="year_selection" >
+        {% for year in available_years %}
+            {% if year != current_year %}
+                <option value="{{ year }}">{{ year }}</option>
+            {% else %}
+                <option value="{{ year }}" selected="selected">{{ year }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
 
+    <div class="row">
+        <div class="col-lg-12">
+            <p id="annual_costs">dépenses annuelles: {{ annual_costs }} €</p>
 
-<div style="display:inline-block;width: 61.8%;margin-top: 15px">
-    <div>
-        {{conso_watt_graph|safe}}
+            {% if is_elec_heating %}
+                <p>Vous utilisez un chauffage électrique</p>
+            {% endif %}
+
+            {% if dysfunction_detected %}
+                <p>{{ dysfunction_detected }}</p>
+            {% endif %}
+
+            <p></p>
+        </div>
+
     </div>
-</div>
+
+    <div style="display:inline-block;width: 61.8%;margin-top: 15px">
+        <div id="conso_watt_graph">
+            {{conso_watt_graph|safe}}
+        </div>
+    </div>
 
 {% endblock %}
 
+<script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+
+{% block script %}
+    <script type="text/javascript">
+        var client_id = "{{client_id }}"
+    </script>
+
+    <script
+            src="{% static 'dashboard/js/results.js' %}">
+    </script>
+{% endblock %}

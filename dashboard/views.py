@@ -1,4 +1,7 @@
+from django.http import JsonResponse
+
 from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
 from dashboard.Context.context_results import ResultsContext
@@ -19,12 +22,19 @@ class ClientFormView(View):  # class ClientFormView(View)
             return redirect('dashboard:results', client_id=client_id)
 
 
+@csrf_exempt
 def results(request, client_id):
 
-    # we should check client_id type, availability (...) here
+    if request.is_ajax():
+        context = ResultsContext(client_id=request.POST['client_id'], current_year=request.POST['selected_year'])
+        gna = context.to_dict()
+        gna = 2
+        return JsonResponse(context.to_dict())
 
-    context = ResultsContext(client_id=int(client_id))
-    return render(request, 'dashboard/results.html', context.to_dict())
+    elif request.method == "GET":
+        context = ResultsContext(client_id=client_id)
+        return render(request, 'dashboard/results.html', context.to_dict())
+
 
 
 
