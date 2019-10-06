@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from dashboard.Context.context_results import ResultsContext
+from dashboard.Context.context_results import ResultsBaseContext, ResultsAjaxContext
 
 from dashboard.forms import ClientForm
 
@@ -26,13 +26,11 @@ class ClientFormView(View):  # class ClientFormView(View)
 def results(request, client_id):
 
     if request.is_ajax():
-        context = ResultsContext(client_id=request.POST['client_id'], current_year=request.POST['selected_year'])
-        gna = context.to_dict()
-        gna = 2
+        context = ResultsAjaxContext(client_id=request.POST['client_id'], current_year=request.POST['current_year'])
         return JsonResponse(context.to_dict())
 
     elif request.method == "GET":
-        context = ResultsContext(client_id=client_id)
+        context = ResultsBaseContext(client_id=client_id)
         return render(request, 'dashboard/results.html', context.to_dict())
 
 
